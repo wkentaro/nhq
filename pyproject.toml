@@ -17,7 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Utilities",
 ]
-dependencies = ["click>=8", "rich>=13"]
+dependencies = ["click>=8", "rich>=13", "typing-extensions>=4"]
 description = "Private per-repo notes alongside a git repo, kept out of git and backed up via storage you already sync."
 dynamic = ["version"]
 keywords = ["cli", "ghq", "git", "notes", "private"]
@@ -25,6 +25,9 @@ license = "MIT"
 name = "nhq"
 readme = "README.md"
 requires-python = ">=3.10"
+
+[project.scripts]
+nhq = "nhq._cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/wkentaro/nhq"
