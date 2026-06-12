@@ -37,6 +37,18 @@ def test_root_without_git_repo(
     assert result.stdout.strip() == str(cli.nhq_root)
 
 
+def test_root_with_env_root_skips_git(
+    cli: NhqCLI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # With NHQ_ROOT set, resolution must not shell out to git; PATH points at a
+    # dir with no git binary, so any git call would fail with "git not found".
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    result = cli.run_ok("root")
+
+    assert result.stdout.strip() == str(cli.nhq_root)
+
+
 def test_root_help(cli: NhqCLI) -> None:
     result = cli.run_ok("root", "--help")
 
