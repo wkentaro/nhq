@@ -19,12 +19,15 @@ URL.
 
 ## How it works
 
-Two planes, and each verb acts on exactly one:
+Two planes:
 
 - **The store** is `$NHQ_ROOT/<host>/<user>/<repo>/`: the actual notes. Created
   once, lives in your synced folder, shared across machines.
 - **The link** is the `./nhq` symlink plus a `.git/info/exclude` entry.
   Per-checkout and per-machine, never committed.
+
+`nhq init` sets up both on the first machine; `nhq link` connects the link plane
+on every other machine.
 
 `nhq` does not sync. Point the root at a folder something already syncs (Dropbox,
 iCloud, Syncthing, a NAS mount) and backup comes for free.
@@ -51,16 +54,13 @@ Requires POSIX (macOS, Linux); it relies on symlinks.
 
 ## Usage
 
-```bash
-nhq init   # create this repo's store (once, on one machine)
-nhq link   # link ./nhq here and hide it from git (once per checkout)
-```
-
-`nhq link` drops a `./nhq` symlink into your working tree and adds it to
-`.git/info/exclude`, so it stays invisible to git:
+On the first machine, one command sets everything up. `nhq init` creates the
+store and drops a `./nhq` symlink into your working tree, added to
+`.git/info/exclude` so git never sees it:
 
 ```console
-$ nhq link
+$ nhq init
+created store /home/you/nhq/github.com/wkentaro/labelme
 linked /home/you/code/labelme/nhq -> /home/you/nhq/github.com/wkentaro/labelme
 
 $ ls -l nhq
@@ -70,8 +70,19 @@ nhq -> /home/you/nhq/github.com/wkentaro/labelme
 Now write notes into `./nhq/`. They live in your synced storage and never touch
 git.
 
-Both verbs also work from a subdirectory: a subtree gets its own separate store,
-keyed by its path within the repo, so a monorepo subtree keeps its own notes.
+On any other machine or checkout the store already exists (it synced over), so
+just link to it:
+
+```console
+$ nhq link
+linked /home/you/code/labelme/nhq -> /home/you/nhq/github.com/wkentaro/labelme
+```
+
+Your notes from the first machine are already under `./nhq/`, synced over.
+
+Both commands also work from a subdirectory: a subtree gets its own separate
+store, keyed by its path within the repo, so a monorepo subtree keeps its own
+notes.
 
 ### Root resolution
 

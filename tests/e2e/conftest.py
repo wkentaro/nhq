@@ -49,3 +49,7 @@ class NhqCLI:
 def cli(git_repo: GitRepo, tmp_path_factory: pytest.TempPathFactory) -> NhqCLI:
     nhq_root = tmp_path_factory.mktemp("nhq_root")
     return NhqCLI(git_repo, nhq_root)
+
+
+def exclude_lines(git_repo: GitRepo) -> list[str]:
+    return (Path(git_repo.path) / ".git/info/exclude").read_text().splitlines()

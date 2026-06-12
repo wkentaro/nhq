@@ -3,16 +3,23 @@ from pathlib import Path
 from tests.conftest import GitRepo
 
 from .conftest import NhqCLI
+from .conftest import exclude_lines
 
 
-def test_init_creates_store(cli: NhqCLI) -> None:
+def test_init_creates_store_and_links(cli: NhqCLI, git_repo: GitRepo) -> None:
     store = cli.nhq_root / "github.com/wkentaro/labelme"
     assert not store.exists()
 
     result = cli.run_ok("init")
 
     assert store.is_dir()
+    link = Path(git_repo.path) / "nhq"
+    assert link.is_symlink()
+    assert link.readlink() == store
+    assert "/nhq" in exclude_lines(git_repo)
     assert "created store" in result.stderr
+    assert "linked" in result.stderr
+    assert "already linked" not in result.stderr
 
 
 def test_init_help(cli: NhqCLI) -> None:
@@ -21,13 +28,14 @@ def test_init_help(cli: NhqCLI) -> None:
     assert "Root resolution:" in result.stderr
 
 
-def test_init_is_idempotent(cli: NhqCLI) -> None:
+def test_init_is_idempotent(cli: NhqCLI, git_repo: GitRepo) -> None:
     cli.run_ok("init")
+
     result = cli.run_ok("init")
 
     assert "store exists" in result.stderr
-    store = cli.nhq_root / "github.com/wkentaro/labelme"
-    assert store.is_dir()
+    assert "already linked" in result.stderr
+    assert exclude_lines(git_repo).count("/nhq") == 1
 
 
 def test_init_subtree_store(cli: NhqCLI, git_repo: GitRepo) -> None:
@@ -37,6 +45,23 @@ def test_init_subtree_store(cli: NhqCLI, git_repo: GitRepo) -> None:
 
     store = cli.nhq_root / "github.com/wkentaro/labelme%2Fservices%2Fapi"
     assert store.is_dir()
+    link = Path(subdir) / "nhq"
+    assert link.is_symlink()
+    assert link.readlink() == store
+    assert "/services/api/nhq" in exclude_lines(git_repo)
+
+
+def test_init_reports_link_conflict_but_keeps_store(
+    cli: NhqCLI, git_repo: GitRepo
+) -> None:
+    (Path(git_repo.path) / "nhq").symlink_to("/somewhere/else")
+
+    result = cli.run("init")
+
+    assert result.returncode == 1
+    assert "already links to" in result.stderr
+    assert "created store" in result.stderr  # store created before the link failed
+    assert (cli.nhq_root / "github.com/wkentaro/labelme").is_dir()
 
 
 def test_init_root_uses_git_config_when_no_env(
