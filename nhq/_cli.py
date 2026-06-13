@@ -61,6 +61,12 @@ class CliGroup(click.Group):
             ctx.exit(130)
 
 
+def _resolve_root() -> Path:
+    env_root = os.environ.get("NHQ_ROOT")
+    config_root = None if env_root else get_config("nhq.root")
+    return resolve_root(env_root=env_root, config_root=config_root)
+
+
 def _resolve_store() -> tuple[Path, str]:
     if not is_git_repo():
         raise CliError("not a git repository")
@@ -76,12 +82,8 @@ def _resolve_store() -> tuple[Path, str]:
     except ValueError as exc:
         raise CliError(str(exc)) from exc
 
-    root = resolve_root(
-        env_root=os.environ.get("NHQ_ROOT"),
-        config_root=get_config("nhq.root"),
-    )
     show_prefix = get_show_prefix()
-    store = store_path(root=root, identity=identity, subpath=show_prefix)
+    store = store_path(root=_resolve_root(), identity=identity, subpath=show_prefix)
     return store, show_prefix
 
 
@@ -154,6 +156,15 @@ def cmd_link(show_help: bool) -> None:
     _link_store(store, show_prefix)
 
 
+@cli.command("root", add_help_option=False)
+@click.option("-h", "--help", "show_help", is_flag=True)
+def cmd_root(show_help: bool) -> None:
+    if show_help:
+        print_help(HELP_ROOT)
+        return
+    click.echo(str(_resolve_root()))
+
+
 def _err() -> Console:
     return Console(stderr=True, highlight=False)
 
@@ -203,6 +214,7 @@ Private per-repo notes alongside a git repo, kept out of git.
 [bold green]Commands:[/bold green]
   [bold cyan]init[/bold cyan]  Create this repo's store and link it (run once)
   [bold cyan]link[/bold cyan]  Link ./nhq to an existing store (per checkout)
+  [bold cyan]root[/bold cyan]  Print the resolved root directory
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]     Print help
@@ -212,7 +224,11 @@ Private per-repo notes alongside a git repo, kept out of git.
   [cyan]nhq init[/cyan]  [dim]# Set up the store and link ./nhq (first machine)[/dim]
   [cyan]nhq link[/cyan]  [dim]# Link ./nhq on another machine or checkout[/dim]"""
 
-HELP_INIT: Final = """\
+ROOT_RESOLUTION: Final = """\
+[bold green]Root resolution:[/bold green]
+  [cyan]NHQ_ROOT[/cyan] env -> [cyan]git config nhq.root[/cyan] -> [cyan]~/nhq[/cyan]"""
+
+HELP_INIT: Final = f"""\
 Create this repo's store under the resolved root (path derived from the origin
 remote, ghq-style) and link ./nhq to it. Idempotent. Run this once, on the
 machine where you first start; on other machines use nhq link.
@@ -222,10 +238,9 @@ machine where you first start; on other machines use nhq link.
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
 
-[bold green]Root resolution:[/bold green]
-  [cyan]NHQ_ROOT[/cyan] env -> [cyan]git config nhq.root[/cyan] -> [cyan]~/nhq[/cyan]"""
+{ROOT_RESOLUTION}"""
 
-HELP_LINK: Final = """\
+HELP_LINK: Final = f"""\
 Link ./nhq in the current directory to this repo's store and add it to
 .git/info/exclude so git ignores it. Per checkout and per machine; the link
 is never committed. Requires the store to exist (run nhq init first).
@@ -235,5 +250,15 @@ is never committed. Requires the store to exist (run nhq init first).
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
 
-[bold green]Root resolution:[/bold green]
-  [cyan]NHQ_ROOT[/cyan] env -> [cyan]git config nhq.root[/cyan] -> [cyan]~/nhq[/cyan]"""
+{ROOT_RESOLUTION}"""
+
+HELP_ROOT: Final = f"""\
+Print the resolved root directory, the base under which every store lives. Use
+it to locate or cd into your stores. Works anywhere; a git repo is not required.
+
+[bold green]Usage:[/bold green] [bold cyan]nhq root[/bold cyan]
+
+[bold green]Options:[/bold green]
+  [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+{ROOT_RESOLUTION}"""

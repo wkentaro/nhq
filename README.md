@@ -92,6 +92,16 @@ The root is resolved like ghq, in order:
 NHQ_ROOT env  ->  git config nhq.root  ->  ~/nhq
 ```
 
+`nhq root` prints it, the same way `ghq root` does. It needs no repo, so it
+works anywhere:
+
+```console
+$ nhq root
+/home/you/nhq
+
+$ cd "$(nhq root)"
+```
+
 ## vs repoverlay
 
 [repoverlay](https://github.com/tylerbutler/repoverlay) uses the same mechanism
