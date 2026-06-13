@@ -1,3 +1,4 @@
+import contextlib
 import os
 from pathlib import Path
 from typing import Final
@@ -147,12 +148,23 @@ def _unlink_store(store: Path, show_prefix: str) -> None:
     # Scrub the exclude entry before removing the symlink: if it fails, the link
     # is still intact and the user can retry cleanly, rather than being left with
     # a removed symlink and a lingering exclude entry.
+    exclude_line = _exclude_line(show_prefix)
     try:
-        scrubbed = remove_excluded(_exclude_line(show_prefix))
-        if remove_link:
-            link.unlink()
+        scrubbed = remove_excluded(exclude_line)
     except OSError as exc:
         raise CliError(f"cannot unlink ./nhq: {exc}") from exc
+
+    if remove_link:
+        try:
+            link.unlink()
+        except OSError as exc:
+            # The symlink survives, so restore the exclude entry we just scrubbed
+            # to keep it ignored and leave a clean state to retry from. Best-effort:
+            # a restore failure must never mask the original error raised below.
+            if scrubbed:
+                with contextlib.suppress(Exception):
+                    ensure_excluded(exclude_line)
+            raise CliError(f"cannot unlink ./nhq: {exc}") from exc
 
     verb = "unlinked" if remove_link or scrubbed else "nothing to unlink"
     print_status(verb, link.absolute())
