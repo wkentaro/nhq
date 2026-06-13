@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from tests.conftest import GitRepo
 
 from .conftest import NhqCLI
@@ -119,6 +121,25 @@ def test_unlink_reports_filesystem_error_and_keeps_symlink(
     assert result.returncode == 1
     assert "cannot unlink" in result.stderr
     assert link.is_symlink()  # scrubbed-first: symlink left intact on failure
+
+
+def test_unlink_restores_exclude_when_symlink_removal_fails(
+    cli: NhqCLI, git_repo: GitRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    make_store(cli)
+    cli.run_ok("link")
+    link = Path(git_repo.path) / "nhq"
+
+    def fail_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        raise OSError("cannot remove symlink")
+
+    monkeypatch.setattr(Path, "unlink", fail_unlink)
+    result = cli.run("unlink")
+
+    assert result.returncode == 1
+    assert "cannot unlink" in result.stderr
+    assert link.is_symlink()  # symlink survives the failed removal
+    assert "/nhq" in exclude_lines(git_repo)  # exclude restored: state stays consistent
 
 
 def test_unlink_help(cli: NhqCLI) -> None:
