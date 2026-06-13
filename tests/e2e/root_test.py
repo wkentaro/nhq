@@ -40,4 +40,5 @@ def test_root_without_git_repo(
 def test_root_help(cli: NhqCLI) -> None:
     result = cli.run_ok("root", "--help")
 
+    assert "a git repo is not required" in result.stderr
     assert "Root resolution:" in result.stderr
