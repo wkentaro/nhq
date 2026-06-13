@@ -37,6 +37,9 @@ Repository = "https://github.com/wkentaro/nhq"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build.targets.sdist]
+include = ["/nhq"]
+
 [tool.ty.rules]
 all = "error"
 
