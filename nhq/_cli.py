@@ -301,8 +301,11 @@ Private per-repo notes alongside a git repo, kept out of git.
   [bold cyan]-V[/bold cyan], [bold cyan]--version[/bold cyan]  Print version
 
 [bold green]Examples:[/bold green]
-  [cyan]nhq init[/cyan]  [dim]# Set up the store and link ./nhq (first machine)[/dim]
-  [cyan]nhq link[/cyan]  [dim]# Link ./nhq on another machine or checkout[/dim]"""
+  [cyan]nhq init[/cyan]    [dim]# Set up the store and link ./nhq (first machine)[/dim]
+  [cyan]nhq link[/cyan]    [dim]# Link ./nhq on another machine or checkout[/dim]
+  [cyan]nhq unlink[/cyan]  [dim]# Remove ./nhq from this checkout[/dim]
+  [cyan]nhq list[/cyan]    [dim]# List this repo's stores[/dim]
+  [cyan]cd packages/foo && nhq init[/cyan]  [dim]# A monorepo subtree's store[/dim]"""
 
 ROOT_RESOLUTION: Final = """\
 [bold green]Root resolution:[/bold green]
