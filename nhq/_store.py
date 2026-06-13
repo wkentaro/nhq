@@ -44,3 +44,29 @@ def store_path(root: Path, identity: str, subpath: str) -> Path:
     # store, not a child of it (ADR-0003).
     encoded = urllib.parse.quote("/" + subpath, safe="")
     return base.parent / (base.name + encoded)
+
+
+def decode_subpath(leaf: str, name: str) -> str | None:
+    if name == leaf:
+        return ""
+    prefix = leaf + urllib.parse.quote("/", safe="")
+    if not name.startswith(prefix):
+        return None
+    return urllib.parse.unquote(name[len(leaf) :]).strip("/")
+
+
+def list_stores(root: Path, identity: str) -> list[tuple[str, Path]]:
+    base = root / identity
+    parent = base.parent
+    if not parent.is_dir():
+        return []
+    stores: list[tuple[str, Path]] = []
+    for entry in parent.iterdir():
+        if not entry.is_dir():
+            continue
+        subpath = decode_subpath(leaf=base.name, name=entry.name)
+        if subpath is None:
+            continue
+        stores.append((subpath, entry))
+    stores.sort(key=lambda item: (item[0] != "", item[0]))
+    return stores

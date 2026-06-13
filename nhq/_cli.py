@@ -14,6 +14,7 @@ from ._git import get_config
 from ._git import get_origin_url
 from ._git import get_show_prefix
 from ._git import is_git_repo
+from ._store import list_stores
 from ._store import parse_remote_url
 from ._store import resolve_root
 from ._store import store_path
@@ -71,7 +72,7 @@ def _resolve_root() -> Path:
     return resolve_root(env_root=env_root, config_root=config_root)
 
 
-def _resolve_store() -> tuple[Path, str]:
+def _resolve_identity() -> str:
     if not is_git_repo():
         raise CliError("not a git repository")
 
@@ -82,10 +83,13 @@ def _resolve_store() -> tuple[Path, str]:
             tip="add one with: git remote add origin <url>",
         )
     try:
-        identity = parse_remote_url(origin)
+        return parse_remote_url(origin)
     except ValueError as exc:
         raise CliError(str(exc)) from exc
 
+
+def _resolve_store() -> tuple[Path, str]:
+    identity = _resolve_identity()
     show_prefix = get_show_prefix()
     store = store_path(root=_resolve_root(), identity=identity, subpath=show_prefix)
     return store, show_prefix
@@ -179,6 +183,25 @@ def cmd_path(show_help: bool) -> None:
     click.echo(str(store))
 
 
+@cli.command("list", add_help_option=False)
+@click.option("-h", "--help", "show_help", is_flag=True)
+def cmd_list(show_help: bool) -> None:
+    if show_help:
+        print_help(HELP_LIST)
+        return
+    identity = _resolve_identity()
+    root = _resolve_root()
+    current = store_path(root=root, identity=identity, subpath=get_show_prefix())
+    stores = list_stores(root=root, identity=identity)
+    if not stores:
+        return
+    rows = [("." if subpath == "" else subpath + "/", path) for subpath, path in stores]
+    width = max(len(label) for label, _ in rows)
+    for label, path in rows:
+        mark = "*" if path == current else " "
+        click.echo(f"{mark} {label:<{width}} {path}")
+
+
 def _err() -> Console:
     return Console(stderr=True, highlight=False)
 
@@ -230,6 +253,7 @@ Private per-repo notes alongside a git repo, kept out of git.
   [bold cyan]link[/bold cyan]  Link ./nhq to an existing store (per checkout)
   [bold cyan]root[/bold cyan]  Print the resolved root directory
   [bold cyan]path[/bold cyan]  Print this repo's store path
+  [bold cyan]list[/bold cyan]  List this repo's stores (root and subtrees)
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]     Print help
@@ -284,6 +308,20 @@ subdirectory you run it in. Does not create or link anything; use it to locate o
 cd into the store. Requires a git repo with an origin remote.
 
 [bold green]Usage:[/bold green] [bold cyan]nhq path[/bold cyan]
+
+[bold green]Options:[/bold green]
+  [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+{ROOT_RESOLUTION}"""
+
+HELP_LIST: Final = f"""\
+List every existing store for this repo, the root store plus any subtree stores,
+one per line, identically wherever in the repo you run it. Each line shows the
+decoded subpath (. for the repo root) and the store path; the store for the
+current directory is marked with *. Read-only: creates and links nothing.
+Requires a git repo with an origin remote.
+
+[bold green]Usage:[/bold green] [bold cyan]nhq list[/bold cyan]
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help

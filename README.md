@@ -115,6 +115,20 @@ $ nhq path
 $ cd "$(nhq path)"
 ```
 
+### Listing stores
+
+`nhq list` prints every store for this repo, the root plus any subtree stores,
+the same wherever in the repo you run it. Each line shows the decoded subpath and
+the store path; the store for the current directory is marked with `*`. Like
+`path`, it only reads, creating and linking nothing:
+
+```console
+$ nhq list
+* .                /home/you/nhq/github.com/wkentaro/labelme
+  tests/           /home/you/nhq/github.com/wkentaro/labelme%2Ftests
+  labelme/widgets/ /home/you/nhq/github.com/wkentaro/labelme%2Flabelme%2Fwidgets
+```
+
 ## vs repoverlay
 
 [repoverlay](https://github.com/tylerbutler/repoverlay) uses the same mechanism
@@ -124,7 +138,7 @@ notes out to a synced store.
 
 - **Capture, not distribute**: notes flow out of the repo, not config in.
 - **Zero config**: the store path is derived from repo identity, not named.
-- **Two verbs**: `init` and `link` are all that change anything; `root` and `path` only print.
+- **Two verbs**: `init` and `link` are all that change anything; `root`, `path`, and `list` only print.
 
 ## Scope
 
