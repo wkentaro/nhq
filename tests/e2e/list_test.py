@@ -101,4 +101,5 @@ def test_list_requires_origin_remote(cli: NhqCLI, git_repo: GitRepo) -> None:
 def test_list_help(cli: NhqCLI) -> None:
     result = cli.run_ok("list", "--help")
 
-    assert "Root resolution:" in result.stderr
+    assert "Root resolution:" in result.stdout
+    assert result.stderr == ""

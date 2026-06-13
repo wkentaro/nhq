@@ -75,5 +75,6 @@ def test_root_with_env_root_skips_git(
 def test_root_help(cli: NhqCLI) -> None:
     result = cli.run_ok("root", "--help")
 
-    assert "a git repo is not required" in result.stderr
-    assert "Root resolution:" in result.stderr
+    assert "a git repo is not required" in result.stdout
+    assert "Root resolution:" in result.stdout
+    assert result.stderr == ""

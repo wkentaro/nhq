@@ -10,4 +10,5 @@ def test_module_entry_point() -> None:
     )
 
     assert result.returncode == 0
-    assert "Usage:" in result.stderr
+    assert "Usage:" in result.stdout
+    assert result.stderr == ""

@@ -44,4 +44,5 @@ def test_path_requires_origin_remote(cli: NhqCLI, git_repo: GitRepo) -> None:
 def test_path_help(cli: NhqCLI) -> None:
     result = cli.run_ok("path", "--help")
 
-    assert "Root resolution:" in result.stderr
+    assert "Root resolution:" in result.stdout
+    assert result.stderr == ""

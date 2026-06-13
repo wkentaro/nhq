@@ -73,20 +73,23 @@ def test_bare_invocation_prints_help(cli: NhqCLI) -> None:
     result = cli.run()
 
     assert result.returncode == 0
-    assert "Usage:" in result.stderr
-    assert "init" in result.stderr
+    assert "Usage:" in result.stdout
+    assert "init" in result.stdout
+    assert result.stderr == ""
 
 
 def test_help_flag(cli: NhqCLI) -> None:
     result = cli.run("--help")
 
     assert result.returncode == 0
-    assert "Commands:" in result.stderr
-    assert "nhq init" in result.stderr
+    assert "Commands:" in result.stdout
+    assert "nhq init" in result.stdout
+    assert result.stderr == ""
 
 
 def test_version_flag(cli: NhqCLI) -> None:
     result = cli.run("--version")
 
     assert result.returncode == 0
-    assert "nhq" in result.stderr
+    assert "nhq" in result.stdout
+    assert result.stderr == ""

@@ -64,7 +64,8 @@ def test_link_appends_after_file_without_trailing_newline(
 def test_link_help(cli: NhqCLI) -> None:
     result = cli.run_ok("link", "--help")
 
-    assert "nhq link" in result.stderr
+    assert "nhq link" in result.stdout
+    assert result.stderr == ""
 
 
 def test_link_requires_store(cli: NhqCLI) -> None:

@@ -202,16 +202,20 @@ def cmd_list(show_help: bool) -> None:
         click.echo(f"{mark} {label:<{width}} {path}")
 
 
+def _out() -> Console:
+    return Console(highlight=False)
+
+
 def _err() -> Console:
     return Console(stderr=True, highlight=False)
 
 
 def print_help(text: str) -> None:
-    _err().print(text)
+    _out().print(text)
 
 
 def print_version(version: str) -> None:
-    _err().print(f"nhq [dim]{version}[/dim]")
+    _out().print(f"nhq [dim]{version}[/dim]")
 
 
 def print_status(verb: str, path: Path, target: Path | None = None) -> None:

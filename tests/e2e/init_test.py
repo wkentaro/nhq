@@ -25,7 +25,8 @@ def test_init_creates_store_and_links(cli: NhqCLI, git_repo: GitRepo) -> None:
 def test_init_help(cli: NhqCLI) -> None:
     result = cli.run_ok("init", "--help")
 
-    assert "Root resolution:" in result.stderr
+    assert "Root resolution:" in result.stdout
+    assert result.stderr == ""
 
 
 def test_init_is_idempotent(cli: NhqCLI, git_repo: GitRepo) -> None:
