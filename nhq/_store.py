@@ -29,10 +29,9 @@ def parse_remote_url(url: str) -> str:
 
 
 def resolve_root(env_root: str | None, config_root: str | None) -> Path:
-    if env_root:
-        return Path(env_root).expanduser()
-    if config_root:
-        return Path(config_root).expanduser()
+    raw = env_root or config_root
+    if raw:
+        return Path(raw).expanduser().absolute()
     return Path.home() / "nhq"
 
 
