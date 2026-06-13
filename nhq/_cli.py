@@ -8,6 +8,7 @@ from rich.text import Text
 from typing_extensions import override
 
 from . import __version__
+from ._git import GitError
 from ._git import ensure_excluded
 from ._git import get_config
 from ._git import get_origin_url
@@ -51,6 +52,9 @@ class CliGroup(click.Group):
         except CliError as exc:
             print_error(str(exc), tip=exc.tip, usage=exc.usage)
             ctx.exit(2 if exc.usage else 1)
+        except GitError as exc:
+            print_error(str(exc))
+            ctx.exit(1)
         except FileNotFoundError:
             print_error(
                 "git not found",

@@ -2,8 +2,20 @@ import subprocess
 from pathlib import Path
 
 
+class GitError(RuntimeError):
+    pass
+
+
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], capture_output=True, text=True)
+
+
+def _run_checked(*args: str) -> str:
+    result = _run(*args)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exited with {result.returncode}"
+        raise GitError(f"git {' '.join(args)}: {detail}")
+    return result.stdout.strip()
 
 
 def is_git_repo() -> bool:
@@ -18,7 +30,7 @@ def get_origin_url() -> str | None:
 
 
 def get_show_prefix() -> str:
-    return _run("rev-parse", "--show-prefix").stdout.strip()
+    return _run_checked("rev-parse", "--show-prefix")
 
 
 def get_config(key: str) -> str | None:
@@ -29,7 +41,7 @@ def get_config(key: str) -> str | None:
 
 
 def get_exclude_path() -> str:
-    return _run("rev-parse", "--git-path", "info/exclude").stdout.strip()
+    return _run_checked("rev-parse", "--git-path", "info/exclude")
 
 
 def ensure_excluded(line: str) -> None:
