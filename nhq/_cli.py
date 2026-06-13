@@ -14,6 +14,7 @@ from ._git import get_config
 from ._git import get_origin_url
 from ._git import get_show_prefix
 from ._git import is_git_repo
+from ._git import remove_excluded
 from ._store import list_stores
 from ._store import parse_remote_url
 from ._store import resolve_root
@@ -95,6 +96,10 @@ def _resolve_store() -> tuple[Path, str]:
     return store, show_prefix
 
 
+def _exclude_line(show_prefix: str) -> str:
+    return "/" + show_prefix + "nhq"
+
+
 def _link_store(store: Path, show_prefix: str) -> None:
     link = Path("nhq")
     try:
@@ -114,11 +119,43 @@ def _link_store(store: Path, show_prefix: str) -> None:
         else:
             link.symlink_to(store.absolute())
             verb = "linked"
-        ensure_excluded("/" + show_prefix + "nhq")
+        ensure_excluded(_exclude_line(show_prefix))
     except OSError as exc:
         raise CliError(f"cannot link ./nhq: {exc}") from exc
 
     print_status(verb, link.absolute(), store)
+
+
+def _unlink_store(store: Path, show_prefix: str) -> None:
+    link = Path("nhq")
+    if link.is_symlink():
+        current = link.readlink()
+        if current != store.absolute():
+            raise CliError(
+                f"'./nhq' links to {current}, not this repo's store",
+                tip="remove ./nhq manually if you meant to",
+            )
+        remove_link = True
+    elif link.exists():
+        raise CliError(
+            "'./nhq' exists and is not an nhq symlink",
+            tip="remove ./nhq manually if you meant to",
+        )
+    else:
+        remove_link = False
+
+    # Scrub the exclude entry before removing the symlink: if it fails, the link
+    # is still intact and the user can retry cleanly, rather than being left with
+    # a removed symlink and a lingering exclude entry.
+    try:
+        scrubbed = remove_excluded(_exclude_line(show_prefix))
+        if remove_link:
+            link.unlink()
+    except OSError as exc:
+        raise CliError(f"cannot unlink ./nhq: {exc}") from exc
+
+    verb = "unlinked" if remove_link or scrubbed else "nothing to unlink"
+    print_status(verb, link.absolute())
 
 
 @click.group(cls=CliGroup, invoke_without_command=True, add_help_option=False)
@@ -162,6 +199,16 @@ def cmd_link(show_help: bool) -> None:
             tip="create it first with: nhq init",
         )
     _link_store(store, show_prefix)
+
+
+@cli.command("unlink", add_help_option=False)
+@click.option("-h", "--help", "show_help", is_flag=True)
+def cmd_unlink(show_help: bool) -> None:
+    if show_help:
+        print_help(HELP_UNLINK)
+        return
+    store, show_prefix = _resolve_store()
+    _unlink_store(store, show_prefix)
 
 
 @cli.command("root", add_help_option=False)
@@ -243,10 +290,11 @@ Private per-repo notes alongside a git repo, kept out of git.
 {USAGE}
 
 [bold green]Commands:[/bold green]
-  [bold cyan]init[/bold cyan]  Create this repo's store and link it (run once)
-  [bold cyan]link[/bold cyan]  Link ./nhq to an existing store (per checkout)
-  [bold cyan]root[/bold cyan]  Print the resolved root directory
-  [bold cyan]list[/bold cyan]  List this repo's stores (root and subtrees)
+  [bold cyan]init[/bold cyan]    Create this repo's store and link it (run once)
+  [bold cyan]link[/bold cyan]    Link ./nhq to an existing store (per checkout)
+  [bold cyan]unlink[/bold cyan]  Remove ./nhq and its exclude entry (inverse of link)
+  [bold cyan]root[/bold cyan]    Print the resolved root directory
+  [bold cyan]list[/bold cyan]    List this repo's stores (root and subtrees)
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]     Print help
@@ -278,6 +326,19 @@ Link ./nhq in the current directory to this repo's store and add it to
 is never committed. Requires the store to exist (run nhq init first).
 
 [bold green]Usage:[/bold green] [bold cyan]nhq link[/bold cyan]
+
+[bold green]Options:[/bold green]
+  [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+{ROOT_RESOLUTION}"""
+
+HELP_UNLINK: Final = f"""\
+Remove ./nhq in the current directory and scrub its .git/info/exclude entry, the
+inverse of nhq link. Idempotent and link-only: it never touches the store, and
+only ever removes a ./nhq that points at this repo's store. Requires a git repo
+with an origin remote.
+
+[bold green]Usage:[/bold green] [bold cyan]nhq unlink[/bold cyan]
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help

@@ -53,3 +53,9 @@ def cli(git_repo: GitRepo, tmp_path_factory: pytest.TempPathFactory) -> NhqCLI:
 
 def exclude_lines(git_repo: GitRepo) -> list[str]:
     return (Path(git_repo.path) / ".git/info/exclude").read_text().splitlines()
+
+
+def make_store(cli: NhqCLI, name: str = "github.com/wkentaro/labelme") -> Path:
+    store = cli.nhq_root / name
+    store.mkdir(parents=True)
+    return store

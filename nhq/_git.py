@@ -53,3 +53,15 @@ def ensure_excluded(line: str) -> None:
     exclude.parent.mkdir(parents=True, exist_ok=True)
     with exclude.open("a") as file:
         file.write(prefix + line + "\n")
+
+
+def remove_excluded(line: str) -> bool:
+    exclude = Path(get_exclude_path())
+    if not exclude.exists():
+        return False
+    lines = exclude.read_text().splitlines()
+    if line not in lines:
+        return False
+    kept = [existing for existing in lines if existing != line]
+    exclude.write_text("".join(existing + "\n" for existing in kept))
+    return True

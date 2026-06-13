@@ -84,6 +84,15 @@ Both commands also work from a subdirectory: a subtree gets its own separate
 store, keyed by its path within the repo, so a monorepo subtree keeps its own
 notes.
 
+To undo the link on a checkout, `nhq unlink` removes the `./nhq` symlink and its
+`.git/info/exclude` entry. It is the inverse of `link` and never touches the
+store, so your notes stay safe in the synced root:
+
+```console
+$ nhq unlink
+unlinked /home/you/code/labelme/nhq
+```
+
 ### Root resolution
 
 The root is resolved like ghq, in order:
@@ -125,7 +134,7 @@ notes out to a synced store.
 
 - **Capture, not distribute**: notes flow out of the repo, not config in.
 - **Zero config**: the store path is derived from repo identity, not named.
-- **Two verbs**: `init` and `link` are all that change anything; `root` and `list` only print.
+- **Three verbs**: `init`, `link`, and `unlink` are all that change anything; `root` and `list` only print.
 
 ## Scope
 
