@@ -173,16 +173,6 @@ def cmd_root(show_help: bool) -> None:
     click.echo(str(_resolve_root()))
 
 
-@cli.command("path", add_help_option=False)
-@click.option("-h", "--help", "show_help", is_flag=True)
-def cmd_path(show_help: bool) -> None:
-    if show_help:
-        print_help(HELP_PATH)
-        return
-    store, _ = _resolve_store()
-    click.echo(str(store))
-
-
 @cli.command("list", add_help_option=False)
 @click.option("-h", "--help", "show_help", is_flag=True)
 def cmd_list(show_help: bool) -> None:
@@ -256,7 +246,6 @@ Private per-repo notes alongside a git repo, kept out of git.
   [bold cyan]init[/bold cyan]  Create this repo's store and link it (run once)
   [bold cyan]link[/bold cyan]  Link ./nhq to an existing store (per checkout)
   [bold cyan]root[/bold cyan]  Print the resolved root directory
-  [bold cyan]path[/bold cyan]  Print this repo's store path
   [bold cyan]list[/bold cyan]  List this repo's stores (root and subtrees)
 
 [bold green]Options:[/bold green]
@@ -300,18 +289,6 @@ Print the resolved root directory, the base under which every store lives. Use
 it to locate or cd into your stores. Works anywhere; a git repo is not required.
 
 [bold green]Usage:[/bold green] [bold cyan]nhq root[/bold cyan]
-
-[bold green]Options:[/bold green]
-  [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
-
-{ROOT_RESOLUTION}"""
-
-HELP_PATH: Final = f"""\
-Print this repo's store path, derived from the origin remote (ghq-style) and the
-subdirectory you run it in. Does not create or link anything; use it to locate or
-cd into the store. Requires a git repo with an origin remote.
-
-[bold green]Usage:[/bold green] [bold cyan]nhq path[/bold cyan]
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help

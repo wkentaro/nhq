@@ -102,25 +102,12 @@ $ nhq root
 $ cd "$(nhq root)"
 ```
 
-### Store path
-
-`nhq path` prints this repo's store path, derived from the origin remote (and the
-subdirectory you run it in, for a subtree). It only derives the path, creating and
-linking nothing, so it works before `nhq init`:
-
-```console
-$ nhq path
-/home/you/nhq/github.com/wkentaro/labelme
-
-$ cd "$(nhq path)"
-```
-
 ### Listing stores
 
 `nhq list` prints every store for this repo, the root plus any subtree stores,
 the same wherever in the repo you run it. Each line shows the decoded subpath and
-the store path; the store for the current directory is marked with `*`. Like
-`path`, it only reads, creating and linking nothing:
+the store path; the store for the current directory is marked with `*`. It only
+reads, creating and linking nothing:
 
 ```console
 $ nhq list
@@ -138,7 +125,7 @@ notes out to a synced store.
 
 - **Capture, not distribute**: notes flow out of the repo, not config in.
 - **Zero config**: the store path is derived from repo identity, not named.
-- **Two verbs**: `init` and `link` are all that change anything; `root`, `path`, and `list` only print.
+- **Two verbs**: `init` and `link` are all that change anything; `root` and `list` only print.
 
 ## Scope
 
