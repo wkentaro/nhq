@@ -10,11 +10,15 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], capture_output=True, text=True)
 
 
-def _run_checked(*args: str) -> str:
-    result = _run(*args)
+def _check_returncode(result: subprocess.CompletedProcess[str], *args: str) -> None:
     if result.returncode != 0:
         detail = result.stderr.strip() or f"exited with {result.returncode}"
         raise GitError(f"git {' '.join(args)}: {detail}")
+
+
+def _run_checked(*args: str) -> str:
+    result = _run(*args)
+    _check_returncode(result, *args)
     return result.stdout.strip()
 
 
@@ -35,6 +39,28 @@ def get_toplevel() -> Path:
 
 def is_tracked(path: Path) -> bool:
     return _run("ls-files", "--error-unmatch", "--", str(path)).returncode == 0
+
+
+def list_others(toplevel: Path, *, ignored: bool) -> list[str]:
+    # Run from the toplevel so the listing is whole-repo and repo-relative
+    # regardless of the caller's cwd. --directory collapses a wholly-ignored
+    # directory to a single entry instead of dumping its contents. Without
+    # --ignored the result is the untracked-but-not-ignored set; with it, the
+    # ignored set.
+    args = [
+        "-C",
+        str(toplevel),
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "--directory",
+        "-z",
+    ]
+    if ignored:
+        args.append("--ignored")
+    result = _run(*args)
+    _check_returncode(result, *args)
+    return [entry for entry in result.stdout.split("\0") if entry]
 
 
 def get_config(key: str) -> str | None:
