@@ -107,6 +107,10 @@ def _resolve_managed(arg: str, toplevel: Path) -> str:
         raise CliError(str(exc)) from exc
 
 
+def _overlaps(path: str, other: str) -> bool:
+    return path == other or path.startswith(other + "/") or other.startswith(path + "/")
+
+
 def _exclude_line(managed: str) -> str:
     # Escape gitignore metacharacters so the literal path is matched: an
     # unescaped '*', '?', '[' or '\' would make git read the line as a glob and
@@ -215,11 +219,7 @@ def cmd_migrate(path: str | None, show_help: bool) -> None:
     managed = _resolve_managed(path, toplevel)
 
     for other in read_manifest(store):
-        if (
-            managed == other
-            or managed.startswith(other + "/")
-            or other.startswith(managed + "/")
-        ):
+        if _overlaps(managed, other):
             raise CliError(f"'{managed}' overlaps already-managed '{other}'")
 
     source = toplevel / managed
