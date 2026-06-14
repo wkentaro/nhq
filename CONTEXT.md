@@ -22,6 +22,12 @@ in the manifest. The unit every ihq verb operates on. It is identical on every
 machine because it is repo-relative, not tied to where the repo is checked out.
 _Avoid_: file, entry, target.
 
+**Migratable**:
+An unmanaged, untracked working-tree path that `migrate` would accept: it
+exists, is not git-tracked, is not an `ihq` link, and is not already a managed
+path. The candidate set the `migratable` command lists.
+_Avoid_: candidate, untracked file.
+
 **Link**:
 An `ihq` symlink inside a checkout that points at a managed path's slot in the
 store. Per-checkout and per-machine, never committed (it lives only in the
