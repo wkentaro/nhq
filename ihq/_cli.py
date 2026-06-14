@@ -19,6 +19,7 @@ from ._git import get_toplevel
 from ._git import is_excluded
 from ._git import is_git_repo
 from ._git import is_tracked
+from ._git import list_others
 from ._git import remove_excluded
 from ._store import add_to_manifest
 from ._store import parse_remote_url
@@ -105,6 +106,10 @@ def _resolve_managed(arg: str, toplevel: Path) -> str:
         return to_managed_path(arg=arg, toplevel=toplevel, cwd=Path.cwd())
     except ValueError as exc:
         raise CliError(str(exc)) from exc
+
+
+def _overlaps(path: str, other: str) -> bool:
+    return path == other or path.startswith(other + "/") or other.startswith(path + "/")
 
 
 def _exclude_line(managed: str) -> str:
@@ -215,11 +220,7 @@ def cmd_migrate(path: str | None, show_help: bool) -> None:
     managed = _resolve_managed(path, toplevel)
 
     for other in read_manifest(store):
-        if (
-            managed == other
-            or managed.startswith(other + "/")
-            or other.startswith(managed + "/")
-        ):
+        if _overlaps(managed, other):
             raise CliError(f"'{managed}' overlaps already-managed '{other}'")
 
     source = toplevel / managed
@@ -248,6 +249,40 @@ def cmd_migrate(path: str | None, show_help: bool) -> None:
         raise CliError(f"cannot migrate {managed}: {exc}") from exc
     add_to_manifest(store, managed)
     _link_one(store, managed, toplevel)
+
+
+@cli.command("migratable", add_help_option=False)
+@click.option("-h", "--help", "show_help", is_flag=True)
+def cmd_migratable(show_help: bool) -> None:
+    if show_help:
+        print_help(HELP_MIGRATABLE)
+        return
+    store = _resolve_store()
+    toplevel = get_toplevel()
+    managed_paths = read_manifest(store)
+
+    # A directory whose contents are all ignored (e.g. by a nested .gitignore) but
+    # which is not itself ignored appears in both passes: the ignored pass collapses
+    # it to 'dir/', and the untracked pass also emits 'dir/' since the directory
+    # itself is untracked-not-ignored. The untracked '?' is the right mark, so it
+    # must win; apply it last.
+    mark_by_path = {path: " " for path in list_others(toplevel, ignored=True)}
+    for path in list_others(toplevel, ignored=False):
+        mark_by_path[path] = "?"
+
+    # That same ignored pass also lists the directory's ignored contents
+    # individually. Migrating the directory covers them, so keep the directory and
+    # drop the entries nested under it.
+    listed_dirs = [path for path in mark_by_path if path.endswith("/")]
+
+    for path in sorted(mark_by_path):
+        # --directory appends a trailing slash to directories; managed paths carry
+        # none, so strip it before testing overlap.
+        if any(_overlaps(path.rstrip("/"), managed) for managed in managed_paths):
+            continue
+        if any(path != parent and path.startswith(parent) for parent in listed_dirs):
+            continue
+        click.echo(f"{mark_by_path[path]} {path}")
 
 
 @cli.command("link", add_help_option=False)
@@ -394,6 +429,7 @@ EXAMPLES_MIGRATE: Final = [
     ("touch .env && ihq migrate .env", "Create a fresh file, then externalize"),
     ("mkdir notes && ihq migrate notes", "Create a fresh directory, then externalize"),
 ]
+EXAMPLES_MIGRATABLE: Final = [("ihq migratable", "List paths you could externalize")]
 EXAMPLES_LINK: Final = [("ihq link", "Link all the store has (2nd machine)")]
 EXAMPLES_UNLINK: Final = [("ihq unlink scratch", "Drop one link on this checkout")]
 EXAMPLES_LIST: Final = [("ihq list", "Show this repo's managed paths")]
@@ -411,7 +447,13 @@ def render_examples(examples: list[tuple[str, str]]) -> str:
 ALL_EXAMPLES: Final = (
     render_examples(EXAMPLES_MIGRATE)
     + "\n\n"
-    + render_examples(EXAMPLES_LINK + EXAMPLES_UNLINK + EXAMPLES_LIST + EXAMPLES_ROOT)
+    + render_examples(
+        EXAMPLES_MIGRATABLE
+        + EXAMPLES_LINK
+        + EXAMPLES_UNLINK
+        + EXAMPLES_LIST
+        + EXAMPLES_ROOT
+    )
 )
 
 HELP: Final = f"""\
@@ -421,11 +463,12 @@ store, kept out of git.
 {USAGE}
 
 [bold green]Commands:[/bold green]
-  [bold cyan]migrate[/bold cyan]  Move a path into the store and link it (externalize)
-  [bold cyan]link[/bold cyan]     Link a path the store already has (per checkout)
-  [bold cyan]unlink[/bold cyan]   Remove a link and its exclude entry (inverse of link)
-  [bold cyan]list[/bold cyan]     List this repo's managed paths and their status
-  [bold cyan]root[/bold cyan]     Print the resolved root directory
+  [bold cyan]migrate[/bold cyan]     Move a path into the store and link it
+  [bold cyan]migratable[/bold cyan]  List paths eligible for migrate
+  [bold cyan]link[/bold cyan]        Link a path the store already has (per checkout)
+  [bold cyan]unlink[/bold cyan]      Remove a link and its exclude entry
+  [bold cyan]list[/bold cyan]        List this repo's managed paths and their status
+  [bold cyan]root[/bold cyan]        Print the resolved root directory
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]     Print help
@@ -452,6 +495,24 @@ or touch, then migrate it. This is the only verb that creates store content.
 
 [bold green]Examples:[/bold green]
 {render_examples(EXAMPLES_MIGRATE)}
+
+{ROOT_RESOLUTION}"""
+
+HELP_MIGRATABLE: Final = f"""\
+List every path you could externalize with migrate: working-tree paths that are
+not tracked by git and not already managed, one per line, identically wherever in
+the repo you run it. A wholly-ignored directory is collapsed to a single entry.
+Each line is marked: [bold cyan] [/bold cyan] git-ignored,
+[bold cyan]?[/bold cyan] untracked but not ignored (likely headed for a commit,
+so check before you migrate it). Read-only: creates and links nothing.
+
+[bold green]Usage:[/bold green] [bold cyan]ihq migratable[/bold cyan]
+
+[bold green]Options:[/bold green]
+  [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_MIGRATABLE)}
 
 {ROOT_RESOLUTION}"""
 
