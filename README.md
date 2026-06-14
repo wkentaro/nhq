@@ -66,9 +66,11 @@ externalizing a committed file would change it for the whole team, so `ihq`
 refuses.
 
 `migrate` only moves content that already exists. To start something fresh,
-create it first, then migrate:
+create it first, then migrate. `ihq` detects the type from disk, so use `touch`
+for a file or `mkdir` for a directory:
 
 ```console
+$ touch .env && ihq migrate .env
 $ mkdir notes && ihq migrate notes
 ```
 

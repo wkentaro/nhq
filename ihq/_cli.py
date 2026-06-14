@@ -389,6 +389,31 @@ USAGE_UNLINK: Final = (
     "[cyan]<PATH>[/cyan] | [cyan]--all[/cyan]"
 )
 
+EXAMPLES_MIGRATE: Final = [
+    ("ihq migrate scratch", "Externalize an existing ./scratch"),
+    ("touch .env && ihq migrate .env", "Create a fresh file, then externalize"),
+    ("mkdir notes && ihq migrate notes", "Create a fresh directory, then externalize"),
+]
+EXAMPLES_LINK: Final = [("ihq link", "Link all the store has (2nd machine)")]
+EXAMPLES_UNLINK: Final = [("ihq unlink scratch", "Drop one link on this checkout")]
+EXAMPLES_LIST: Final = [("ihq list", "Show this repo's managed paths")]
+EXAMPLES_ROOT: Final = [("ihq root", "Print the resolved root directory")]
+
+
+def render_examples(examples: list[tuple[str, str]]) -> str:
+    width = max(len(command) for command, _ in examples)
+    return "\n".join(
+        f"  [cyan]{command}[/cyan]{' ' * (width - len(command) + 2)}[dim]# {note}[/dim]"
+        for command, note in examples
+    )
+
+
+ALL_EXAMPLES: Final = (
+    render_examples(EXAMPLES_MIGRATE)
+    + "\n\n"
+    + render_examples(EXAMPLES_LINK + EXAMPLES_UNLINK + EXAMPLES_LIST + EXAMPLES_ROOT)
+)
+
 HELP: Final = f"""\
 Externalize git-ignored files and directories to a synced, identity-derived
 store, kept out of git.
@@ -407,10 +432,7 @@ store, kept out of git.
   [bold cyan]-V[/bold cyan], [bold cyan]--version[/bold cyan]  Print version
 
 [bold green]Examples:[/bold green]
-  [cyan]ihq migrate scratch[/cyan]  [dim]# Externalize an existing ./scratch[/dim]
-  [cyan]ihq link[/cyan]             [dim]# Link all the store has (2nd machine)[/dim]
-  [cyan]ihq unlink scratch[/cyan]   [dim]# Drop one link on this checkout[/dim]
-  [cyan]ihq list[/cyan]             [dim]# Show this repo's managed paths[/dim]"""
+{ALL_EXAMPLES}"""
 
 ROOT_RESOLUTION: Final = """\
 [bold green]Root resolution:[/bold green]
@@ -428,6 +450,9 @@ or touch, then migrate it. This is the only verb that creates store content.
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
 
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_MIGRATE)}
+
 {ROOT_RESOLUTION}"""
 
 HELP_LINK: Final = f"""\
@@ -440,6 +465,9 @@ per machine; never creates store content (use migrate for that).
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_LINK)}
 
 {ROOT_RESOLUTION}"""
 
@@ -455,6 +483,9 @@ that points at this repo's store.
       [bold cyan]--all[/bold cyan]   Unlink every managed path on this checkout
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
 
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_UNLINK)}
+
 {ROOT_RESOLUTION}"""
 
 HELP_LIST: Final = f"""\
@@ -469,6 +500,9 @@ store. Read-only: creates and links nothing.
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
 
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_LIST)}
+
 {ROOT_RESOLUTION}"""
 
 HELP_ROOT: Final = f"""\
@@ -479,5 +513,8 @@ it to locate or cd into your stores. Works anywhere; a git repo is not required.
 
 [bold green]Options:[/bold green]
   [bold cyan]-h[/bold cyan], [bold cyan]--help[/bold cyan]  Print help
+
+[bold green]Examples:[/bold green]
+{render_examples(EXAMPLES_ROOT)}
 
 {ROOT_RESOLUTION}"""
