@@ -74,6 +74,13 @@ def get_exclude_path() -> str:
     return _run_checked("rev-parse", "--git-path", "info/exclude")
 
 
+def read_exclude_lines() -> list[str]:
+    exclude = Path(get_exclude_path())
+    if not exclude.exists():
+        return []
+    return exclude.read_text().splitlines()
+
+
 def ensure_excluded(line: str) -> None:
     exclude = Path(get_exclude_path())
     content = exclude.read_text() if exclude.exists() else ""
@@ -86,17 +93,12 @@ def ensure_excluded(line: str) -> None:
 
 
 def is_excluded(line: str) -> bool:
-    exclude = Path(get_exclude_path())
-    if not exclude.exists():
-        return False
-    return line in exclude.read_text().splitlines()
+    return line in read_exclude_lines()
 
 
 def remove_excluded(line: str) -> bool:
     exclude = Path(get_exclude_path())
-    if not exclude.exists():
-        return False
-    lines = exclude.read_text().splitlines()
+    lines = read_exclude_lines()
     if line not in lines:
         return False
     kept = [existing for existing in lines if existing != line]

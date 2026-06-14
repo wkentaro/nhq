@@ -20,11 +20,12 @@ from ._git import is_excluded
 from ._git import is_git_repo
 from ._git import is_tracked
 from ._git import list_others
+from ._git import read_exclude_lines
 from ._git import remove_excluded
-from ._store import add_to_manifest
+from ._store import MARKER_NAME
 from ._store import parse_remote_url
-from ._store import read_manifest
 from ._store import resolve_root
+from ._store import scan_store
 from ._store import store_path
 from ._store import to_managed_path
 
@@ -118,6 +119,32 @@ def _exclude_line(managed: str) -> str:
     # fail to exclude the symlink, leaking it into `git status`.
     escaped = re.sub(r"([\\*?\[])", r"\\\1", managed)
     return "/" + escaped
+
+
+def _managed_from_exclude_line(line: str) -> str | None:
+    if not line.startswith("/"):
+        return None
+    return re.sub(r"\\([\\*?\[])", r"\1", line[1:])
+
+
+def _broken_links(store: Path, toplevel: Path) -> list[str]:
+    # A managed path's store slot deleted by hand leaves the checkout's symlink
+    # pointing at nothing. Such a path is no longer in the scanned set, so recover
+    # it from this checkout's exclude entries: a line whose slot is gone but whose
+    # symlink still points into this store is a broken link to flag and clean.
+    # Requiring the live symlink (not just the exclude line) is what keeps this off
+    # the user's own exclude entries, which are indistinguishable from a lingering
+    # ihq line once both the slot and the symlink are gone.
+    broken: list[str] = []
+    for line in read_exclude_lines():
+        managed = _managed_from_exclude_line(line)
+        if managed is None:
+            continue
+        if (store / managed).exists():
+            continue
+        if _is_linked_here(store, managed, toplevel):
+            broken.append(managed)
+    return sorted(broken)
 
 
 def _link_one(store: Path, managed: str, toplevel: Path) -> None:
@@ -219,7 +246,7 @@ def cmd_migrate(path: str | None, show_help: bool) -> None:
     toplevel = get_toplevel()
     managed = _resolve_managed(path, toplevel)
 
-    for other in read_manifest(store):
+    for other in scan_store(store):
         if _overlaps(managed, other):
             raise CliError(f"'{managed}' overlaps already-managed '{other}'")
 
@@ -243,11 +270,20 @@ def cmd_migrate(path: str | None, show_help: bool) -> None:
         )
 
     try:
+        # Mark the directory before the move so the marker travels with it: a
+        # separate write after the move could be interrupted, stranding a
+        # markerless directory that scans as loose files, not one managed unit.
+        if source.is_dir():
+            (source / MARKER_NAME).touch()
         slot.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(source), str(slot))
     except OSError as exc:
+        # If the move did not take the marker (source still here), scrub it so a
+        # failed migrate leaves the working tree exactly as it was found.
+        if source.is_dir():
+            with contextlib.suppress(OSError):
+                (source / MARKER_NAME).unlink(missing_ok=True)
         raise CliError(f"cannot migrate {managed}: {exc}") from exc
-    add_to_manifest(store, managed)
     _link_one(store, managed, toplevel)
 
 
@@ -259,7 +295,7 @@ def cmd_migratable(show_help: bool) -> None:
         return
     store = _resolve_store()
     toplevel = get_toplevel()
-    managed_paths = read_manifest(store)
+    managed_paths = scan_store(store)
 
     # A directory whose contents are all ignored (e.g. by a nested .gitignore) but
     # which is not itself ignored appears in both passes: the ignored pass collapses
@@ -296,9 +332,8 @@ def cmd_link(path: str | None, show_help: bool) -> None:
     toplevel = get_toplevel()
 
     if path is None:
-        for managed in read_manifest(store):
-            if (store / managed).exists():
-                _link_one(store, managed, toplevel)
+        for managed in scan_store(store):
+            _link_one(store, managed, toplevel)
         return
 
     managed = _resolve_managed(path, toplevel)
@@ -327,7 +362,7 @@ def cmd_unlink(path: str | None, unlink_all: bool, show_help: bool) -> None:
     toplevel = get_toplevel()
 
     if unlink_all:
-        for managed in read_manifest(store):
+        for managed in scan_store(store):
             link = toplevel / managed
             lingering = (
                 not link.exists()
@@ -336,6 +371,8 @@ def cmd_unlink(path: str | None, unlink_all: bool, show_help: bool) -> None:
             )
             if _is_linked_here(store, managed, toplevel) or lingering:
                 _unlink_one(store, managed, toplevel)
+        for managed in _broken_links(store, toplevel):
+            _unlink_one(store, managed, toplevel)
         return
 
     assert path is not None
@@ -350,19 +387,16 @@ def cmd_list(show_help: bool) -> None:
         return
     store = _resolve_store()
     toplevel = get_toplevel()
-    managed_paths = read_manifest(store)
-    if not managed_paths:
+    rows = [
+        (managed, "*" if _is_linked_here(store, managed, toplevel) else " ")
+        for managed in scan_store(store)
+    ]
+    rows += [(managed, "!") for managed in _broken_links(store, toplevel)]
+    if not rows:
         return
-    width = max(len(managed) for managed in managed_paths)
-    for managed in managed_paths:
-        slot = store / managed
-        if not slot.exists():
-            mark = "!"
-        elif _is_linked_here(store, managed, toplevel):
-            mark = "*"
-        else:
-            mark = " "
-        click.echo(f"{mark} {managed:<{width}} {slot}")
+    width = max(len(managed) for managed, _ in rows)
+    for managed, mark in sorted(rows):
+        click.echo(f"{mark} {managed:<{width}} {store / managed}")
 
 
 @cli.command("root", add_help_option=False)
@@ -483,8 +517,9 @@ ROOT_RESOLUTION: Final = """\
 
 HELP_MIGRATE: Final = f"""\
 Move an existing working-tree path into this repo's store (path derived from the
-origin remote, ghq-style), leave an ihq symlink behind, add it to
-.git/info/exclude, and record it in the manifest. The path must exist and must
+origin remote, ghq-style), leave an ihq symlink behind, and add it to
+.git/info/exclude. A migrated directory also gets an empty .ihqdir marker so the
+managed set can be derived by scanning the store. The path must exist and must
 not be tracked by git. To externalize fresh content, create it first with mkdir
 or touch, then migrate it. This is the only verb that creates store content.
 
@@ -534,9 +569,9 @@ per machine; never creates store content (use migrate for that).
 
 HELP_UNLINK: Final = f"""\
 Remove an ihq symlink on this checkout and scrub its .git/info/exclude entry, the
-inverse of ihq link. With --all, do this for every managed path linked here.
-Link-only: it never touches the store or the manifest, and only removes a symlink
-that points at this repo's store.
+inverse of ihq link. With --all, do this for every managed path linked here, plus
+any broken links whose store slot is gone. Link-only: it never touches the store,
+and only removes a symlink that points at this repo's store.
 
 {USAGE_UNLINK}
 
@@ -550,11 +585,11 @@ that points at this repo's store.
 {ROOT_RESOLUTION}"""
 
 HELP_LIST: Final = f"""\
-List every managed path for this repo (from the manifest), one per line,
+List every managed path for this repo (by scanning the store), one per line,
 identically wherever in the repo you run it. Each line is marked with its status
 on this checkout: [bold cyan]*[/bold cyan] linked here, [bold cyan] [/bold cyan]
-in the store but not linked here, [bold cyan]![/bold cyan] missing from the
-store. Read-only: creates and links nothing.
+in the store but not linked here, [bold cyan]![/bold cyan] a link here whose store
+slot is gone. Read-only: creates and links nothing.
 
 [bold green]Usage:[/bold green] [bold cyan]ihq list[/bold cyan]
 

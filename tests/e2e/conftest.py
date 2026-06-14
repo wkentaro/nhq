@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from ihq._cli import cli as ihq_cli
-from ihq._store import MANIFEST_NAME
+from ihq._store import MARKER_NAME
 from tests.conftest import GitRepo
 
 IDENTITY = "github.com/wkentaro/labelme"
@@ -63,17 +63,12 @@ def exclude_lines(git_repo: GitRepo) -> list[str]:
 
 
 def seed(cli: IhqCLI, managed: str, *, is_dir: bool = False) -> Path:
-    """Populate a store slot and manifest entry, as if migrated on another machine."""
+    """Populate a store slot, as if migrated on another machine."""
     slot = cli.store / managed
     slot.parent.mkdir(parents=True, exist_ok=True)
     if is_dir:
         slot.mkdir()
+        (slot / MARKER_NAME).touch()
     else:
         slot.write_text(f"{managed} content\n")
-
-    manifest = cli.store / MANIFEST_NAME
-    entries = manifest.read_text().splitlines() if manifest.exists() else []
-    if managed not in entries:
-        entries = sorted([*entries, managed])
-        manifest.write_text("".join(entry + "\n" for entry in entries))
     return slot

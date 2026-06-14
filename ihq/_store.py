@@ -4,7 +4,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Final
 
-MANIFEST_NAME: Final = ".ihq"
+MARKER_NAME: Final = ".ihqdir"
 
 
 def parse_remote_url(url: str) -> str:
@@ -52,23 +52,30 @@ def to_managed_path(arg: str, toplevel: Path, cwd: Path) -> str:
     managed = relative.as_posix()
     if managed in (".", ""):
         raise ValueError("path is the repository root, not a file within it")
-    if managed == MANIFEST_NAME:
-        raise ValueError(f"{MANIFEST_NAME!r} is reserved for the manifest")
+    if Path(managed).name == MARKER_NAME:
+        raise ValueError(f"{MARKER_NAME!r} is reserved by ihq as a directory marker")
     return managed
 
 
-def read_manifest(store: Path) -> list[str]:
-    manifest = store / MANIFEST_NAME
-    if not manifest.is_file():
+def scan_store(store: Path) -> list[str]:
+    if not store.is_dir():
         return []
-    paths = [line.strip() for line in manifest.read_text().splitlines()]
-    return sorted(path for path in paths if path)
+    managed: list[str] = []
+    _collect_managed(directory=store, store=store, managed=managed)
+    return sorted(managed)
 
 
-def add_to_manifest(store: Path, managed_path: str) -> None:
-    paths = read_manifest(store)
-    if managed_path in paths:
-        return
-    paths = sorted([*paths, managed_path])
-    store.mkdir(parents=True, exist_ok=True)
-    (store / MANIFEST_NAME).write_text("".join(path + "\n" for path in paths))
+def _collect_managed(directory: Path, store: Path, managed: list[str]) -> None:
+    for child in directory.iterdir():
+        # The store holds real moved content; a stray symlink is never a unit.
+        if child.is_symlink():
+            continue
+        relative = child.relative_to(store).as_posix()
+        if not child.is_dir():
+            if child.name != MARKER_NAME:
+                managed.append(relative)
+            continue
+        if (child / MARKER_NAME).is_file():
+            managed.append(relative)
+            continue
+        _collect_managed(directory=child, store=store, managed=managed)

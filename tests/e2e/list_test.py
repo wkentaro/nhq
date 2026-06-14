@@ -1,4 +1,3 @@
-from ihq._store import MANIFEST_NAME
 from tests.conftest import GitRepo
 
 from .conftest import IhqCLI
@@ -25,15 +24,17 @@ def test_list_marks_status_per_path(cli: IhqCLI) -> None:
     seed(cli, "linked-here")
     seed(cli, "in-store-only")
     cli.run_ok("link", "linked-here")
-    manifest = cli.store / MANIFEST_NAME
-    manifest.write_text(manifest.read_text() + "missing\n")
+    # A link whose store slot was deleted by hand: still linked here, slot gone.
+    seed(cli, "gone")
+    cli.run_ok("link", "gone")
+    (cli.store / "gone").unlink()
 
     result = cli.run_ok("list")
 
     assert _parse(result.stdout) == [
+        ("!", "gone"),
         (" ", "in-store-only"),
         ("*", "linked-here"),
-        ("!", "missing"),
     ]
 
 

@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from ihq._store import MANIFEST_NAME
 from tests.conftest import GitRepo
 
 from .conftest import IhqCLI
@@ -10,9 +9,7 @@ from .conftest import exclude_lines
 from .conftest import seed
 
 
-def test_unlink_removes_symlink_but_keeps_store_and_manifest(
-    cli: IhqCLI, git_repo: GitRepo
-) -> None:
+def test_unlink_removes_symlink_but_keeps_store(cli: IhqCLI, git_repo: GitRepo) -> None:
     slot = seed(cli, "scratch")
     cli.run_ok("link", "scratch")
     link = Path(git_repo.path) / "scratch"
@@ -23,7 +20,6 @@ def test_unlink_removes_symlink_but_keeps_store_and_manifest(
     assert "/scratch" not in exclude_lines(git_repo)
     assert "unlinked" in result.stderr
     assert slot.exists()
-    assert (cli.store / MANIFEST_NAME).read_text().splitlines() == ["scratch"]
 
 
 def test_unlink_all_removes_every_link(cli: IhqCLI, git_repo: GitRepo) -> None:
@@ -36,10 +32,29 @@ def test_unlink_all_removes_every_link(cli: IhqCLI, git_repo: GitRepo) -> None:
     assert not (Path(git_repo.path) / "scratch").exists()
     assert not (Path(git_repo.path) / "backend/.env").is_symlink()
     assert (cli.store / "scratch").exists()
-    assert sorted((cli.store / MANIFEST_NAME).read_text().splitlines()) == [
-        "backend/.env",
-        "scratch",
-    ]
+
+
+def test_unlink_cleans_broken_link(cli: IhqCLI, git_repo: GitRepo) -> None:
+    seed(cli, "scratch")
+    cli.run_ok("link", "scratch")
+    (cli.store / "scratch").unlink()  # store slot deleted by hand
+
+    result = cli.run_ok("unlink", "scratch")
+
+    assert not (Path(git_repo.path) / "scratch").is_symlink()
+    assert "/scratch" not in exclude_lines(git_repo)
+    assert "unlinked" in result.stderr
+
+
+def test_unlink_all_cleans_broken_link(cli: IhqCLI, git_repo: GitRepo) -> None:
+    seed(cli, "scratch")
+    cli.run_ok("link", "scratch")
+    (cli.store / "scratch").unlink()  # store slot deleted by hand
+
+    cli.run_ok("unlink", "--all")
+
+    assert not (Path(git_repo.path) / "scratch").is_symlink()
+    assert "/scratch" not in exclude_lines(git_repo)
 
 
 def test_unlink_all_scrubs_lingering_exclude_when_link_already_gone(

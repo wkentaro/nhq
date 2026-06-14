@@ -44,6 +44,11 @@ def test_repo_root_raises(arg: str) -> None:
         to_managed_path(arg=arg, toplevel=_TOP, cwd=_TOP)
 
 
-def test_reserved_manifest_name_raises() -> None:
+def test_reserved_marker_name_raises() -> None:
     with pytest.raises(ValueError, match="reserved"):
-        to_managed_path(arg=".ihq", toplevel=_TOP, cwd=_TOP)
+        to_managed_path(arg=".ihqdir", toplevel=_TOP, cwd=_TOP)
+
+
+def test_reserved_marker_name_nested_raises() -> None:
+    with pytest.raises(ValueError, match="reserved"):
+        to_managed_path(arg="foo/.ihqdir", toplevel=_TOP, cwd=_TOP)

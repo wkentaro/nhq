@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from ihq._store import MANIFEST_NAME
 from tests.conftest import GitRepo
 
 from .conftest import IhqCLI
@@ -37,15 +36,14 @@ def test_link_all_links_every_managed_path(cli: IhqCLI, git_repo: GitRepo) -> No
     assert (Path(git_repo.path) / "backend/.env").is_symlink()
 
 
-def test_link_all_skips_missing_from_store(cli: IhqCLI, git_repo: GitRepo) -> None:
-    seed(cli, "scratch")
-    manifest = cli.store / MANIFEST_NAME
-    manifest.write_text(manifest.read_text() + "ghost\n")
+def test_link_all_links_marked_directory(cli: IhqCLI, git_repo: GitRepo) -> None:
+    slot = seed(cli, "notes", is_dir=True)
 
     cli.run_ok("link")
 
-    assert (Path(git_repo.path) / "scratch").is_symlink()
-    assert not (Path(git_repo.path) / "ghost").exists()
+    link = Path(git_repo.path) / "notes"
+    assert link.is_symlink()
+    assert link.readlink() == slot
 
 
 def test_link_is_idempotent(cli: IhqCLI, git_repo: GitRepo) -> None:

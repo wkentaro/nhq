@@ -1,14 +1,13 @@
+import shutil
 from pathlib import Path
 
-from ihq._store import MANIFEST_NAME
+import pytest
+
+from ihq._store import MARKER_NAME
 from tests.conftest import GitRepo
 
 from .conftest import IhqCLI
 from .conftest import exclude_lines
-
-
-def _manifest(cli: IhqCLI) -> list[str]:
-    return (cli.store / MANIFEST_NAME).read_text().splitlines()
 
 
 def test_migrate_file(cli: IhqCLI, git_repo: GitRepo) -> None:
@@ -22,7 +21,7 @@ def test_migrate_file(cli: IhqCLI, git_repo: GitRepo) -> None:
     assert src.is_symlink()
     assert src.readlink() == slot
     assert "/scratch.txt" in exclude_lines(git_repo)
-    assert _manifest(cli) == ["scratch.txt"]
+    assert not (cli.store / MARKER_NAME).exists()  # a file gets no marker
     assert "linked" in result.stderr
 
 
@@ -47,8 +46,27 @@ def test_migrate_directory_preserves_content(cli: IhqCLI, git_repo: GitRepo) -> 
 
     slot = cli.store / "scratch"
     assert (slot / "a.txt").read_text() == "a\n"
+    assert (slot / MARKER_NAME).is_file()  # a directory is marked as a unit
     assert src.is_symlink()
     assert src.readlink() == slot
+
+
+def test_migrate_directory_failure_leaves_no_stray_marker(
+    cli: IhqCLI, git_repo: GitRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = Path(git_repo.mkdir("notes"))
+    (src / "a.txt").write_text("a\n")
+
+    def fail_move(*args: object, **kwargs: object) -> None:
+        raise OSError("cannot move")
+
+    monkeypatch.setattr(shutil, "move", fail_move)
+    result = cli.run("migrate", "notes")
+
+    assert result.returncode == 1
+    assert "cannot migrate" in result.stderr
+    assert not (src / MARKER_NAME).exists()  # marker scrubbed on failed migrate
+    assert (src / "a.txt").read_text() == "a\n"  # content untouched
 
 
 def test_migrate_nested_path(cli: IhqCLI, git_repo: GitRepo) -> None:
@@ -60,7 +78,7 @@ def test_migrate_nested_path(cli: IhqCLI, git_repo: GitRepo) -> None:
     assert (cli.store / "backend/.env").read_text() == "SECRET=1\n"
     assert (backend / ".env").is_symlink()
     assert "/backend/.env" in exclude_lines(git_repo)
-    assert _manifest(cli) == ["backend/.env"]
+    assert not (cli.store / "backend" / MARKER_NAME).exists()  # intermediate, unmarked
 
 
 def test_migrate_from_subdir_uses_repo_relative_path(
@@ -72,7 +90,6 @@ def test_migrate_from_subdir_uses_repo_relative_path(
     cli.run_ok("migrate", "scratch", cwd=subdir)
 
     assert (cli.store / "packages/foo/scratch").read_text() == "x\n"
-    assert _manifest(cli) == ["packages/foo/scratch"]
 
 
 def test_migrate_refuses_tracked_path(cli: IhqCLI, git_repo: GitRepo) -> None:
@@ -117,9 +134,9 @@ def test_migrate_refuses_when_already_in_store(cli: IhqCLI, git_repo: GitRepo) -
 
 
 def test_migrate_refuses_reserved_name(cli: IhqCLI, git_repo: GitRepo) -> None:
-    (Path(git_repo.path) / MANIFEST_NAME).write_text("x\n")
+    (Path(git_repo.path) / MARKER_NAME).write_text("x\n")
 
-    result = cli.run("migrate", MANIFEST_NAME)
+    result = cli.run("migrate", MARKER_NAME)
 
     assert result.returncode == 1
     assert "reserved" in result.stderr
