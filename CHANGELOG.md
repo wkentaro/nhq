@@ -6,20 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-06-13
+## [Unreleased]
 
 ### Added
 
-- `nhq init` to create this repo's store under
-  `$NHQ_ROOT/<host>/<user>/<repo>/` and link it in one step (run once per repo).
-- `nhq link` to connect `./nhq` to an existing store on additional checkouts or
-  machines, creating the symlink and the `.git/info/exclude` entry.
-- `nhq unlink` to remove the symlink and exclude entry, leaving the store
-  untouched.
-- `nhq root` to print the absolute store-root path for the current repo.
-- `nhq list` to show the stores under the current repo's identity, marking the
-  one linked to the current checkout.
+- `ihq migrate <path>` moves an existing, untracked path into this repo's store
+  under `$IHQ_ROOT/<host>/<user>/<repo>/`, leaves a symlink behind, adds a
+  `.git/info/exclude` entry, and records the path in the `.ihq` manifest. It is
+  the only verb that creates store content, and it hard-refuses git-tracked
+  paths.
+- `ihq link [path]` attaches a path the store already has; with no argument it
+  links every managed path not yet linked here (the second-machine flow). It
+  never creates store content.
+- `ihq unlink <path>` / `ihq unlink --all` remove links and their exclude
+  entries, leaving the store and manifest untouched.
+- `ihq list` shows every managed path and its per-checkout status.
+- `ihq root` prints the resolved store-root directory, the same way `ghq root`
+  does.
+- The store is a per-repo mirror tree: each externalized path lives at its
+  repo-relative location, recorded in a `.ihq` manifest at the store root, so a
+  nested path simply nests and any checkout knows the full set to link.
 - `--version` and `--help` output on stdout, with Examples sections in each
   subcommand's help.
-
-[0.1.0]: https://github.com/wkentaro/nhq/releases/tag/v0.1.0

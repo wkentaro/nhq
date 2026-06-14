@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from ihq._git import ensure_excluded
-from ihq._git import remove_excluded
+from ihq._git import is_excluded
 from tests.conftest import GitRepo
 
 
@@ -17,24 +17,19 @@ def _exclude(git_repo: GitRepo) -> Path:
     return Path(git_repo.path) / ".git/info/exclude"
 
 
-def test_removes_matching_line_and_preserves_others(in_repo: GitRepo) -> None:
-    ensure_excluded("manual-entry")
+def test_returns_true_when_line_present(in_repo: GitRepo) -> None:
     ensure_excluded("/ihq")
 
-    assert remove_excluded("/ihq") is True
-    lines = _exclude(in_repo).read_text().splitlines()
-    assert "/ihq" not in lines
-    assert "manual-entry" in lines
+    assert is_excluded("/ihq") is True
 
 
 def test_returns_false_when_line_absent(in_repo: GitRepo) -> None:
     ensure_excluded("manual-entry")
 
-    assert remove_excluded("/ihq") is False
-    assert "manual-entry" in _exclude(in_repo).read_text().splitlines()
+    assert is_excluded("/ihq") is False
 
 
 def test_returns_false_when_exclude_missing(in_repo: GitRepo) -> None:
     _exclude(in_repo).unlink()
 
-    assert remove_excluded("/ihq") is False
+    assert is_excluded("/ihq") is False

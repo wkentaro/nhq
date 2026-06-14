@@ -1,96 +1,114 @@
-# nhq
+# ihq
 
-[![PyPI](https://img.shields.io/pypi/v/nhq.svg)](https://pypi.org/project/nhq/)
-[![Python](https://img.shields.io/pypi/pyversions/nhq.svg)](https://pypi.org/project/nhq/)
-[![Build](https://github.com/wkentaro/nhq/actions/workflows/test.yml/badge.svg)](https://github.com/wkentaro/nhq/actions/workflows/test.yml)
-[![License](https://img.shields.io/pypi/l/nhq.svg)](https://pypi.org/project/nhq/)
+[![PyPI](https://img.shields.io/pypi/v/ihq.svg)](https://pypi.org/project/ihq/)
+[![Python](https://img.shields.io/pypi/pyversions/ihq.svg)](https://pypi.org/project/ihq/)
+[![Build](https://github.com/wkentaro/ihq/actions/workflows/test.yml/badge.svg)](https://github.com/wkentaro/ihq/actions/workflows/test.yml)
+[![License](https://img.shields.io/pypi/l/ihq.svg)](https://pypi.org/project/ihq/)
 
-ghq for your private per-repo notes: every repo gets a private folder that lives
-in storage you already sync, never in git. A capture tool, not a
-config-distribution tool.
+ghq for the files git shouldn't see: externalize any git-ignored path to storage
+you already sync, never to git. A capture tool, not a config-distribution tool.
 
-`nhq` ("notes headquarters") manages a deterministic symlink from inside a git
-repo to a notes directory kept outside git. While working in a repo (often with
-an AI agent) you accumulate notes, scratch, and artifacts you want beside the
-code but never committed, not for the team and not on GitHub. `nhq` keeps them
-in a store whose path is derived from the repo's identity, the same way
-[ghq](https://github.com/x-motemen/ghq) derives a checkout path from a remote
-URL.
+`ihq` ("ignored headquarters") moves git-ignored files and directories out of a
+checkout into a store kept outside git, leaving a symlink behind. While working
+in a repo (often with an AI agent) you accumulate notes, scratch, `.env` files,
+and artifacts you want beside the code but never committed, not for the team and
+not on GitHub. `ihq` keeps them in a store whose path is derived from the repo's
+identity, the same way [ghq](https://github.com/x-motemen/ghq) derives a checkout
+path from a remote URL.
 
 ## How it works
 
 Two planes:
 
-- **The store** is `$NHQ_ROOT/<host>/<user>/<repo>/`: the actual notes. Created
-  once, lives in your synced folder, shared across machines.
-- **The link** is the `./nhq` symlink plus a `.git/info/exclude` entry.
+- **The store** is `$IHQ_ROOT/<host>/<user>/<repo>/`: a mirror tree holding your
+  externalized paths, each at its own repo-relative location. Lives in your
+  synced folder, shared across machines. A `.ihq` manifest at its root records
+  the managed set.
+- **The links** are the `ihq` symlinks plus their `.git/info/exclude` entries.
   Per-checkout and per-machine, never committed.
 
-`nhq init` sets up both on the first machine; `nhq link` connects the link plane
-on every other machine.
+`ihq migrate` externalizes a path on the first machine; `ihq link` re-attaches it
+on every other.
 
-`nhq` does not sync. Point the root at a folder something already syncs (Dropbox,
+`ihq` does not sync. Point the root at a folder something already syncs (Dropbox,
 iCloud, Syncthing, a NAS mount) and backup comes for free.
 
 ## Install
 
 ```bash
-pip install nhq
+pip install ihq
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install nhq
-```
-
-Verify it works:
-
-```bash
-nhq --help
+uv tool install ihq
 ```
 
 Requires POSIX (macOS, Linux); it relies on symlinks.
 
 ## Usage
 
-On the first machine, one command sets everything up. `nhq init` creates the
-store and drops a `./nhq` symlink into your working tree, added to
-`.git/info/exclude` so git never sees it:
+### Externalize a path
+
+`ihq migrate <path>` moves an existing file or directory into the store and drops
+a symlink in its place, added to `.git/info/exclude` so git never sees it:
 
 ```console
-$ nhq init
-created store /home/you/nhq/github.com/wkentaro/labelme
-linked /home/you/code/labelme/nhq -> /home/you/nhq/github.com/wkentaro/labelme
-
-$ ls -l nhq
-nhq -> /home/you/nhq/github.com/wkentaro/labelme
+$ echo "scratch notes" > scratch.md
+$ ihq migrate scratch.md
+linked /home/you/code/labelme/scratch.md -> /home/you/ihq/github.com/wkentaro/labelme/scratch.md
 ```
 
-Now write notes into `./nhq/`. They live in your synced storage and never touch
-git.
+The path keeps working in place; its bytes now live in your synced store. Nested
+paths work too (`ihq migrate backend/.env`). The path must not be tracked by git:
+externalizing a committed file would change it for the whole team, so `ihq`
+refuses.
 
-On any other machine or checkout the store already exists (it synced over), so
-just link to it:
+`migrate` only moves content that already exists. To start something fresh,
+create it first, then migrate:
 
 ```console
-$ nhq link
-linked /home/you/code/labelme/nhq -> /home/you/nhq/github.com/wkentaro/labelme
+$ mkdir notes && ihq migrate notes
 ```
 
-Your notes from the first machine are already under `./nhq/`, synced over.
+### Link on another machine
 
-Both commands also work from a subdirectory: a subtree gets its own separate
-store, keyed by its path within the repo, so a monorepo subtree keeps its own
-notes.
-
-To undo the link on a checkout, `nhq unlink` removes the `./nhq` symlink and its
-`.git/info/exclude` entry. It is the inverse of `link` and never touches the
-store, so your notes stay safe in the synced root:
+The store syncs over, so other checkouts just re-attach. `ihq link` with no
+argument links every path the store has but this checkout does not:
 
 ```console
-$ nhq unlink
-unlinked /home/you/code/labelme/nhq
+$ ihq link
+linked /home/you/code/labelme/scratch.md -> /home/you/ihq/github.com/wkentaro/labelme/scratch.md
+linked /home/you/code/labelme/notes -> /home/you/ihq/github.com/wkentaro/labelme/notes
+```
+
+Or link one path: `ihq link scratch.md`. `link` never creates store content; if
+the store does not have the path it errors (run `ihq migrate` first). This is the
+guard that catches a typo'd remote or an un-synced store instead of producing
+junk.
+
+### Unlink
+
+`ihq unlink <path>` removes one symlink and its exclude entry; `ihq unlink --all`
+does every path on this checkout. It never touches the store or the manifest, so
+your content stays safe in the synced root:
+
+```console
+$ ihq unlink scratch.md
+unlinked /home/you/code/labelme/scratch.md
+```
+
+### List
+
+`ihq list` shows every managed path for this repo and its status on this
+checkout, the same wherever in the repo you run it. `*` is linked here, a space
+is in the store but not linked here, `!` is missing from the store. Read-only:
+
+```console
+$ ihq list
+* scratch.md   /home/you/ihq/github.com/wkentaro/labelme/scratch.md
+  backend/.env /home/you/ihq/github.com/wkentaro/labelme/backend/.env
 ```
 
 ### Root resolution
@@ -98,47 +116,33 @@ unlinked /home/you/code/labelme/nhq
 The root is resolved like ghq, in order:
 
 ```
-NHQ_ROOT env  ->  git config nhq.root  ->  ~/nhq
+IHQ_ROOT env  ->  git config ihq.root  ->  ~/ihq
 ```
 
-`nhq root` prints it, the same way `ghq root` does. It needs no repo, so it
-works anywhere:
+`ihq root` prints it, the same way `ghq root` does. It needs no repo, so it works
+anywhere:
 
 ```console
-$ nhq root
-/home/you/nhq
+$ ihq root
+/home/you/ihq
 
-$ cd "$(nhq root)"
-```
-
-### Listing stores
-
-`nhq list` prints every store for this repo, the root plus any subtree stores,
-the same wherever in the repo you run it. Each line shows the decoded subpath and
-the store path; the store for the current directory is marked with `*`. It only
-reads, creating and linking nothing:
-
-```console
-$ nhq list
-* .                /home/you/nhq/github.com/wkentaro/labelme
-  tests/           /home/you/nhq/github.com/wkentaro/labelme%2Ftests
-  labelme/widgets/ /home/you/nhq/github.com/wkentaro/labelme%2Flabelme%2Fwidgets
+$ cd "$(ihq root)"
 ```
 
 ## vs repoverlay
 
 [repoverlay](https://github.com/tylerbutler/repoverlay) uses the same mechanism
 (a symlink plus `.git/info/exclude`) but the opposite data model. It distributes
-one shared bundle of files into many repos; `nhq` captures each repo's own unique
-notes out to a synced store.
+one shared bundle of files into many repos; `ihq` captures each repo's own unique
+git-ignored paths out to a synced store.
 
-- **Capture, not distribute**: notes flow out of the repo, not config in.
+- **Capture, not distribute**: content flows out of the repo, not config in.
 - **Zero config**: the store path is derived from repo identity, not named.
-- **Three verbs**: `init`, `link`, and `unlink` are all that change anything; `root` and `list` only print.
+- **Few verbs**: `migrate`, `link`, and `unlink` are all that change anything; `root` and `list` only print.
 
 ## Scope
 
-v1 manages the link and the derived path; it never syncs, clones, or touches the
+`ihq` manages links and the derived store; it never syncs, clones, or touches the
 network. Backup is delegated entirely to whatever already syncs your root.
 
 ## License

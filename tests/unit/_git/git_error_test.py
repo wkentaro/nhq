@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from nhq._git import GitError
-from nhq._git import get_exclude_path
-from nhq._git import get_show_prefix
+from ihq._git import GitError
+from ihq._git import get_exclude_path
+from ihq._git import get_toplevel
 
 
-@pytest.mark.parametrize("query", [get_show_prefix, get_exclude_path])
+@pytest.mark.parametrize("query", [get_toplevel, get_exclude_path])
 def test_raises_outside_repo(
-    query: Callable[[], str],
+    query: Callable[[], object],
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

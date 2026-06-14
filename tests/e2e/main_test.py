@@ -4,7 +4,7 @@ import sys
 
 def test_module_entry_point() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "nhq", "--help"],
+        [sys.executable, "-m", "ihq", "--help"],
         capture_output=True,
         text=True,
     )

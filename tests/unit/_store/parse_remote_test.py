@@ -1,6 +1,6 @@
 import pytest
 
-from nhq._store import parse_remote_url
+from ihq._store import parse_remote_url
 
 
 @pytest.mark.parametrize(

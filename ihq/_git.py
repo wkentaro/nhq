@@ -29,8 +29,12 @@ def get_origin_url() -> str | None:
     return result.stdout.strip() or None
 
 
-def get_show_prefix() -> str:
-    return _run_checked("rev-parse", "--show-prefix")
+def get_toplevel() -> Path:
+    return Path(_run_checked("rev-parse", "--show-toplevel"))
+
+
+def is_tracked(path: Path) -> bool:
+    return _run("ls-files", "--error-unmatch", "--", str(path)).returncode == 0
 
 
 def get_config(key: str) -> str | None:
@@ -53,6 +57,13 @@ def ensure_excluded(line: str) -> None:
     exclude.parent.mkdir(parents=True, exist_ok=True)
     with exclude.open("a") as file:
         file.write(prefix + line + "\n")
+
+
+def is_excluded(line: str) -> bool:
+    exclude = Path(get_exclude_path())
+    if not exclude.exists():
+        return False
+    return line in exclude.read_text().splitlines()
 
 
 def remove_excluded(line: str) -> bool:

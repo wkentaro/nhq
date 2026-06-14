@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from nhq._store import resolve_root
+from ihq._store import resolve_root
 
 
 def test_resolve_root_default() -> None:
-    assert resolve_root(env_root=None, config_root=None) == Path.home() / "nhq"
+    assert resolve_root(env_root=None, config_root=None) == Path.home() / "ihq"
 
 
 def test_resolve_root_env_wins() -> None:

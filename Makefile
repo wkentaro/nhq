@@ -38,4 +38,4 @@ test:  # Run tests
 	$(call exec,uv run pytest -v tests/ $(PYTEST_ARGS))
 
 coverage:  # Run tests with coverage
-	$(MAKE) test PYTEST_ARGS="--cov=nhq --cov-report=term-missing"
+	$(MAKE) test PYTEST_ARGS="--cov=ihq --cov-report=term-missing"

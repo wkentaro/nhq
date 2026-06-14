@@ -18,27 +18,27 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = ["click>=8", "rich>=13", "typing-extensions>=4"]
-description = "Private per-repo notes alongside a git repo, kept out of git and backed up via storage you already sync."
+description = "Externalize git-ignored files and directories to a synced, identity-derived store, the ghq way."
 dynamic = ["version"]
-keywords = ["cli", "ghq", "git", "notes", "private"]
+keywords = ["cli", "ghq", "git", "gitignore", "private"]
 license = "MIT"
-name = "nhq"
+name = "ihq"
 readme = "README.md"
 requires-python = ">=3.10"
 
 [project.scripts]
-nhq = "nhq._cli:cli"
+ihq = "ihq._cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/wkentaro/nhq"
-Issues = "https://github.com/wkentaro/nhq/issues"
-Repository = "https://github.com/wkentaro/nhq"
+Homepage = "https://github.com/wkentaro/ihq"
+Issues = "https://github.com/wkentaro/ihq/issues"
+Repository = "https://github.com/wkentaro/ihq"
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.targets.sdist]
-include = ["/nhq"]
+include = ["/ihq"]
 
 [tool.ty.rules]
 all = "error"
